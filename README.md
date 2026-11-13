@@ -1,6 +1,7 @@
 # WebhookRelay
 
 [![CI](https://github.com/EduardoCruz78/WebhookRelay/actions/workflows/ci.yml/badge.svg)](https://github.com/EduardoCruz78/WebhookRelay/actions/workflows/ci.yml)
+[![Live demo](https://img.shields.io/badge/demo-live-46E3B7?logo=render&logoColor=white)](https://webhook-relay-1odf.onrender.com/docs)
 ![Node.js 24](https://img.shields.io/badge/Node.js-24_LTS-5FA04E?logo=nodedotjs&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
 ![PostgreSQL 17](https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white)
@@ -10,6 +11,12 @@ Reliable event delivery service. It receives domain events (for example `appoint
 [SchedulingApi](https://github.com/EduardoCruz78/SchedulingApi)), stores and queues them in one
 transaction, and delivers them to subscribers (webhooks, e-mail, Telegram) **at least once**, with
 exponential backoff and jitter, a dead-letter queue, idempotent ingestion and HMAC-signed webhooks.
+
+**Live demo:** <https://webhook-relay-1odf.onrender.com/docs> (API reference). It receives the events of
+the [SchedulingApi demo](https://scheduling-api-gf47.onrender.com/scalar): booking there publishes
+`appointment.created` through its outbox to this relay. Managing subscriptions needs an admin key, so
+the public demo shows the API reference, `/health` and `/openapi.json`. Free plan: the first request
+after 15 idle minutes can take about 50 seconds, and scheduled retries wait until the service wakes up.
 
 ```mermaid
 sequenceDiagram
@@ -206,6 +213,9 @@ Destaques:
   entrega em andamento.
 - **355 testes** (247 unitários, 108 de integração com PostgreSQL real), contrato de assinatura
   testado também em C#, métricas Prometheus e documentação OpenAPI gerada a partir dos schemas.
+
+Demo online: <https://webhook-relay-1odf.onrender.com/docs>, ligada à demo da SchedulingApi (plano
+gratuito: a primeira requisição depois de um tempo parado pode levar uns 50 segundos).
 
 Para rodar: `docker compose up --build` e abrir <http://localhost:3000/docs>.
 
