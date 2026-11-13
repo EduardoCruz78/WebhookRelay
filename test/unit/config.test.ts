@@ -21,6 +21,7 @@ describe('loadConfig', () => {
       ALLOW_HTTP_TARGETS: false,
       EMAIL_FROM: 'WebhookRelay <relay@localhost>',
       TELEGRAM_API_URL: 'https://api.telegram.org',
+      WORKER_METRICS_PORT: 9091,
     });
   });
 

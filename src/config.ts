@@ -43,6 +43,10 @@ const configSchema = z.object({
     .regex(/^\d+:[A-Za-z0-9_-]{30,}$/, 'Expected a BotFather token like 123456:ABC...')
     .optional(),
   TELEGRAM_API_URL: z.url().default('https://api.telegram.org'),
+  /** When set, GET /metrics requires `Authorization: Bearer <token>` (e.g. on a public host). */
+  METRICS_TOKEN: z.string().min(16).optional(),
+  /** The standalone worker serves /metrics and /health on this port. */
+  WORKER_METRICS_PORT: z.coerce.number().int().min(1).max(65_535).default(9091),
 });
 
 export type Config = z.infer<typeof configSchema>;

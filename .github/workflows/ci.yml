@@ -79,6 +79,8 @@ jobs:
             sleep 2
           done
           curl --silent --fail http://localhost:3000/health | grep -q '"status":"ok"'
+          curl --silent --fail http://localhost:3000/openapi.json | grep -q '"/events"'
+          curl --silent --fail http://localhost:3000/docs/ > /dev/null
 
           # Create a source API key with the CLI shipped in the image, then publish an event twice.
           create_key() {
@@ -125,6 +127,8 @@ jobs:
             sleep 1
           done
           curl --silent http://localhost:8025/api/v1/messages | grep -q 'appointment.cancelled'
+          curl --silent --fail http://localhost:3000/metrics | grep -q 'events_received_total{source="ci-smoke",duplicate="true"} 1'
+          docker compose exec -T worker wget -q -O - http://127.0.0.1:9091/metrics | grep -Eq 'deliveries_total\{channel="webhook",status="dead"\} [1-9]'
           echo "Smoke test passed"
 
       - name: Container logs

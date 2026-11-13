@@ -15,7 +15,12 @@ import { WebhookChannel } from './infrastructure/channels/webhook.js';
 import { Database } from './infrastructure/db/database.js';
 import { runMigrations } from './infrastructure/db/migrate.js';
 import { PgUnitOfWork } from './infrastructure/db/unit-of-work.js';
-import { startBoss, startDeliveryWorker } from './infrastructure/queue/delivery-queue.js';
+import { Metrics } from './infrastructure/observability/metrics.js';
+import {
+  DELIVERY_QUEUE,
+  startBoss,
+  startDeliveryWorker,
+} from './infrastructure/queue/delivery-queue.js';
 
 export const systemClock: Clock = { now: () => new Date() };
 
@@ -53,8 +58,13 @@ export interface Runtime {
   readonly boss: PgBoss;
   readonly app: AppDependencies;
   readonly deliverDeps: DeliverDeps;
+  readonly metrics: Metrics;
   /** Starts consuming the delivery queue in this process. */
   startWorker(onDelivered?: (outcome: DeliverOutcome) => void): Promise<void>;
+  /**
+   * Graceful: stops fetching jobs, waits for deliveries in progress (bounded by the delivery
+   * timeout), then closes the pool. Safe to call more than once.
+   */
   close(): Promise<void>;
 }
 
@@ -68,6 +78,15 @@ export async function createRuntime(
   if (config.MIGRATE_ON_START) await runMigrations(database.db);
   const boss = await startBoss(config.DATABASE_URL, onError);
   const unitOfWork = new PgUnitOfWork(database, boss);
+  const metrics = new Metrics(async () => {
+    const { rows } = await database.pool.query<{ state: string; count: number }>(
+      `SELECT state, count(*)::int AS count FROM pgboss.job
+        WHERE name = $1 AND state IN ('created', 'retry', 'active') GROUP BY state`,
+      [DELIVERY_QUEUE],
+    );
+    return Object.fromEntries(rows.map((row) => [row.state, row.count]));
+  });
+  let closing: Promise<void> | undefined;
 
   const deliverDeps: DeliverDeps = {
     repositories: database.repositories,
@@ -82,6 +101,7 @@ export async function createRuntime(
     database,
     boss,
     deliverDeps,
+    metrics,
     app: {
       clock,
       newId,
@@ -96,12 +116,19 @@ export async function createRuntime(
         allowHttp: config.ALLOW_HTTP_TARGETS,
       },
       checkHost,
+      metrics,
     },
     async startWorker(onDelivered) {
       await startDeliveryWorker(
         boss,
         async (deliveryId) => {
           const outcome = await deliver(deliveryId, deliverDeps);
+          if (outcome.kind !== 'skipped') {
+            const subscription = await database.repositories.subscriptions.findById(
+              outcome.delivery.subscriptionId,
+            );
+            metrics.recordDelivery(outcome, subscription?.channel);
+          }
           onDelivered?.(outcome);
         },
         {
@@ -112,10 +139,12 @@ export async function createRuntime(
         },
       );
     },
-    async close() {
-      // graceful: stop fetching new jobs and wait for the ones in progress before closing.
-      await boss.stop({ graceful: true, timeout: config.DELIVERY_TIMEOUT_MS + 5_000 });
-      await database.close();
+    close() {
+      closing ??= (async () => {
+        await boss.stop({ graceful: true, timeout: config.DELIVERY_TIMEOUT_MS + 5_000 });
+        await database.close();
+      })();
+      return closing;
     },
   };
 }

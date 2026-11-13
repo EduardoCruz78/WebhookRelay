@@ -6,6 +6,7 @@ import type { Repositories } from '../../application/ports.js';
 import type { Delivery } from '../../domain/delivery.js';
 import { isValidEventType, type Event } from '../../domain/event.js';
 import { requireRole } from '../auth.js';
+import type { Metrics } from '../../infrastructure/observability/metrics.js';
 import { HttpProblem } from '../problem.js';
 
 const ingestBody = z.object({
@@ -71,6 +72,7 @@ const toDeliverySummary = (delivery: Delivery) => ({
 export interface EventRoutesOptions {
   readonly ingest: IngestEventDeps;
   readonly repositories: Repositories;
+  readonly metrics?: Metrics;
 }
 
 export const eventRoutes: FastifyPluginAsyncZod<EventRoutesOptions> = async (app, options) => {
@@ -103,6 +105,7 @@ export const eventRoutes: FastifyPluginAsyncZod<EventRoutesOptions> = async (app
         options.ingest,
       );
 
+      options.metrics?.events.inc({ source, duplicate: String(result.status === 'duplicate') });
       reply.header('Location', `/events/${result.event.id}`);
       if (result.status === 'duplicate') {
         return reply.status(200).send({ ...toSummary(result.event), duplicate: true });

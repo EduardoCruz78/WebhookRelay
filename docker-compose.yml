@@ -74,6 +74,12 @@ services:
       ALLOW_HTTP_TARGETS: 'true'
       SMTP_URL: smtp://mailpit:1025
       EMAIL_FROM: 'WebhookRelay <relay@webhook-relay.local>'
+    # /metrics and /health of the worker (no public port: Prometheus would scrape it inside the network).
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O - http://127.0.0.1:9091/health || exit 1']
+      interval: 5s
+      timeout: 3s
+      retries: 10
     stop_grace_period: 30s
 
 volumes:

@@ -8,12 +8,15 @@ import {
 import type { HostChecker, Repositories, UnitOfWork } from '../application/ports.js';
 import type { Config } from '../config.js';
 import type { Clock } from '../domain/clock.js';
+import type { Metrics } from '../infrastructure/observability/metrics.js';
 import type { TargetPolicy } from '../domain/subscription.js';
 import { registerAuthentication } from './auth.js';
 import { errorHandler, notFoundHandler } from './problem.js';
 import { deliveryRoutes } from './routes/deliveries.js';
 import { eventRoutes } from './routes/events.js';
 import { healthRoutes } from './routes/health.js';
+import { metricsRoutes } from './routes/metrics.js';
+import { registerOpenApi } from './openapi.js';
 import { subscriptionRoutes } from './routes/subscriptions.js';
 
 export interface AppDependencies {
@@ -24,10 +27,12 @@ export interface AppDependencies {
   readonly checkDatabase: () => Promise<boolean>;
   readonly targetPolicy: TargetPolicy;
   readonly checkHost: HostChecker;
+  /** Absent in tests that do not care about metrics. */
+  readonly metrics?: Metrics;
 }
 
 export async function buildApp(
-  config: Pick<Config, 'LOG_LEVEL'>,
+  config: Pick<Config, 'LOG_LEVEL'> & Partial<Pick<Config, 'METRICS_TOKEN'>>,
   deps: AppDependencies,
 ): Promise<FastifyInstance> {
   const app = Fastify({
@@ -44,11 +49,29 @@ export async function buildApp(
   app.setNotFoundHandler(notFoundHandler);
 
   registerAuthentication(app, deps.repositories.apiKeys);
+  await registerOpenApi(app);
+
+  const { metrics } = deps;
+  if (metrics) {
+    // Route templates (/deliveries/:id), never raw URLs, keep the label cardinality bounded.
+    app.addHook('onResponse', async (request, reply) => {
+      metrics.httpDuration.observe(
+        {
+          method: request.method,
+          route: request.routeOptions.url ?? 'unmatched',
+          status_code: String(reply.statusCode),
+        },
+        reply.elapsedTime / 1000,
+      );
+    });
+    await app.register(metricsRoutes, { metrics, token: config.METRICS_TOKEN });
+  }
 
   await app.register(healthRoutes, { checkDatabase: deps.checkDatabase });
   await app.register(eventRoutes, {
     ingest: { unitOfWork: deps.unitOfWork, clock: deps.clock, newId: deps.newId },
     repositories: deps.repositories,
+    ...(metrics && { metrics }),
   });
   await app.register(subscriptionRoutes, {
     deps: {
