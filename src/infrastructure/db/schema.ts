@@ -124,3 +124,25 @@ export const deliveryAttempts = pgTable(
     index('delivery_attempts_delivery_started_idx').on(table.deliveryId, table.startedAt),
   ],
 );
+
+export const apiKeys = pgTable(
+  'api_keys',
+  {
+    id: uuid('id').primaryKey(),
+    name: text('name').notNull(),
+    role: text('role', { enum: ['source', 'admin'] }).notNull(),
+    source: text('source'),
+    keyHash: text('key_hash').notNull(),
+    createdAt: createdAt(),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  },
+  (table) => [
+    // Every request looks its key up by hash.
+    unique('api_keys_key_hash_unique').on(table.keyHash),
+    check('api_keys_role_check', sql`${table.role} in ('source', 'admin')`),
+    check(
+      'api_keys_source_required_for_source_role',
+      sql`(${table.role} = 'source') = (${table.source} is not null)`,
+    ),
+  ],
+);

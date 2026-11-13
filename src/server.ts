@@ -1,19 +1,27 @@
+import { createRuntime } from './composition.js';
 import { loadConfig } from './config.js';
 import { buildApp } from './http/app.js';
 
 const config = loadConfig();
-const app = await buildApp(config);
+const runtime = await createRuntime(config, (error) => {
+  app.log.error({ err: error }, 'queue error');
+});
+const app = await buildApp(config, runtime.app);
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
     app.log.info({ signal }, 'shutting down');
-    app.close().then(
-      () => process.exit(0),
-      (error: unknown) => {
-        app.log.error({ err: error }, 'error during shutdown');
-        process.exit(1);
-      },
-    );
+    // Stop accepting requests and finish in-flight ones, then release the queue and the pool.
+    app
+      .close()
+      .then(() => runtime.close())
+      .then(
+        () => process.exit(0),
+        (error: unknown) => {
+          app.log.error({ err: error }, 'error during shutdown');
+          process.exit(1);
+        },
+      );
   });
 }
 

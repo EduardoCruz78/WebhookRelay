@@ -79,6 +79,15 @@ jobs:
             sleep 2
           done
           curl --silent --fail http://localhost:3000/health | grep -q '"status":"ok"'
+
+          # Create a source API key with the CLI shipped in the image, then publish an event twice.
+          KEY=$(docker compose run --rm --no-deps migrate node dist/cli/create-api-key.js --name ci --role source --source ci-smoke 2>/dev/null)
+          EVENT='{"id":"smoke-1","type":"appointment.created","occurredAt":"2026-12-07T12:00:00Z","data":{"ok":true}}'
+          publish() {
+            curl --silent --output /dev/null --write-out '%{http_code}' -X POST http://localhost:3000/events               -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' -d "$EVENT"
+          }
+          test "$(publish)" = 202
+          test "$(publish)" = 200
           echo "Smoke test passed"
 
       - name: Container logs

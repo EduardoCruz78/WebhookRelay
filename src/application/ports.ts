@@ -1,3 +1,4 @@
+import type { ApiKey } from '../domain/api-key.js';
 import type { Delivery, DeliveryStatus } from '../domain/delivery.js';
 import type { DeliveryAttempt } from '../domain/delivery-attempt.js';
 import type { Event } from '../domain/event.js';
@@ -63,9 +64,37 @@ export interface DeliveryAttemptRepository {
   listByDelivery(deliveryId: string): Promise<DeliveryAttempt[]>;
 }
 
+export interface ApiKeyRepository {
+  insert(apiKey: ApiKey): Promise<void>;
+  /** The non-revoked key with this hash, if any. */
+  findActiveByHash(keyHash: string): Promise<ApiKey | undefined>;
+}
+
 export interface Repositories {
+  readonly apiKeys: ApiKeyRepository;
   readonly events: EventRepository;
   readonly subscriptions: SubscriptionRepository;
   readonly deliveries: DeliveryRepository;
   readonly attempts: DeliveryAttemptRepository;
+}
+
+/** A delivery that the worker should attempt at `runAt`. */
+export interface DeliveryJob {
+  readonly deliveryId: string;
+  readonly runAt: Date;
+}
+
+/** The work queue (pg-boss). Inside a unit of work, enqueued jobs commit or roll back with the data. */
+export interface DeliveryQueue {
+  enqueue(jobs: readonly DeliveryJob[]): Promise<void>;
+}
+
+export interface TransactionContext {
+  readonly repositories: Repositories;
+  readonly queue: DeliveryQueue;
+}
+
+/** Runs work atomically: every repository write and every enqueued job, or none of them. */
+export interface UnitOfWork {
+  run<T>(work: (tx: TransactionContext) => Promise<T>): Promise<T>;
 }

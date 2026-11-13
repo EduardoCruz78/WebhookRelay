@@ -1,5 +1,10 @@
 import { z } from 'zod';
 
+const booleanString = z
+  .enum(['true', 'false'])
+  .default('false')
+  .transform((value) => value === 'true');
+
 /**
  * Environment configuration, validated once at startup.
  * A missing or malformed variable stops the process before it accepts any traffic.
@@ -9,6 +14,10 @@ const configSchema = z.object({
   HOST: z.string().min(1).default('0.0.0.0'),
   PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+  DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
+  DATABASE_POOL_SIZE: z.coerce.number().int().min(1).max(100).default(10),
+  /** Demo convenience: apply migrations at startup. Production runs them as a separate step. */
+  MIGRATE_ON_START: booleanString,
 });
 
 export type Config = z.infer<typeof configSchema>;

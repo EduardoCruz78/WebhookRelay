@@ -1,6 +1,7 @@
 import { and, arrayOverlaps, asc, desc, eq, gt, isNull, or, sql, type SQL } from 'drizzle-orm';
 
 import type {
+  ApiKeyRepository,
   DeliveryAttemptRepository,
   DeliveryListFilter,
   DeliveryRepository,
@@ -9,12 +10,14 @@ import type {
   Repositories,
   SubscriptionRepository,
 } from '../../application/ports.js';
+import type { ApiKey } from '../../domain/api-key.js';
 import type { Delivery } from '../../domain/delivery.js';
 import type { DeliveryAttempt } from '../../domain/delivery-attempt.js';
 import type { Event } from '../../domain/event.js';
 import { patternsMatching, type Subscription } from '../../domain/subscription.js';
 import type { Db } from './database.js';
 import {
+  apiKeys,
   deliveries,
   deliveryAttempts,
   events,
@@ -37,6 +40,7 @@ const toAttempt = (row: AttemptRow): DeliveryAttempt => ({ ...row });
 
 export function createRepositories(db: Db): Repositories {
   return {
+    apiKeys: new DrizzleApiKeyRepository(db),
     events: new DrizzleEventRepository(db),
     subscriptions: new DrizzleSubscriptionRepository(db),
     deliveries: new DrizzleDeliveryRepository(db),
@@ -263,5 +267,21 @@ class DrizzleDeliveryAttemptRepository implements DeliveryAttemptRepository {
       .where(eq(deliveryAttempts.deliveryId, deliveryId))
       .orderBy(asc(deliveryAttempts.startedAt), asc(deliveryAttempts.id));
     return rows.map(toAttempt);
+  }
+}
+
+class DrizzleApiKeyRepository implements ApiKeyRepository {
+  constructor(private readonly db: Db) {}
+
+  async insert(apiKey: ApiKey): Promise<void> {
+    await this.db.insert(apiKeys).values(apiKey);
+  }
+
+  async findActiveByHash(keyHash: string): Promise<ApiKey | undefined> {
+    const [row] = await this.db
+      .select()
+      .from(apiKeys)
+      .where(and(eq(apiKeys.keyHash, keyHash), isNull(apiKeys.revokedAt)));
+    return row && { ...row };
   }
 }

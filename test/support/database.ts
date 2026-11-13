@@ -34,7 +34,7 @@ export async function createTestDatabase(): Promise<TestDatabase> {
     url: url.toString(),
     async reset() {
       await database.pool.query(
-        'TRUNCATE delivery_attempts, deliveries, subscription_secrets, subscriptions, events CASCADE',
+        'TRUNCATE api_keys, delivery_attempts, deliveries, subscription_secrets, subscriptions, events CASCADE',
       );
     },
     async close() {

@@ -21,6 +21,7 @@ describe('migrations', () => {
     );
 
     expect(rows.map((row) => row.table_name)).toEqual([
+      'api_keys',
       'deliveries',
       'delivery_attempts',
       'events',
@@ -29,12 +30,12 @@ describe('migrations', () => {
     ]);
   });
 
-  it('are idempotent: running them again changes nothing', async () => {
+  it('are idempotent: running them again applies nothing new', async () => {
     await expect(runMigrations(testDb.database.db)).resolves.toBeUndefined();
 
     const { rows } = await testDb.database.pool.query<{ count: string }>(
       'SELECT count(*) FROM drizzle.__drizzle_migrations',
     );
-    expect(Number(rows[0]?.count)).toBe(1);
+    expect(Number(rows[0]?.count)).toBe(2);
   });
 });
