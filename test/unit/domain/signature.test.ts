@@ -174,6 +174,33 @@ describe('secret rotation', () => {
   });
 });
 
+describe('contract with SchedulingApi (C# verifier)', () => {
+  // The same values are pinned in SchedulingApi's WebhookSignatureContractTests.cs, where a .NET
+  // verifier checks them. If this signature ever changes, both builds must be updated together.
+  it('keeps producing the vector the C# test verifies', () => {
+    const id = '01938a2b-0000-7000-8000-000000000001';
+    const body = JSON.stringify({
+      id,
+      type: 'appointment.created',
+      source: 'scheduling-api',
+      occurredAt: '2026-12-07T12:00:00.000Z',
+      data: { appointmentId: 'a-1', price: 50 },
+    });
+
+    const header = signatureHeader(
+      [
+        'whsec_c2NoZWR1bGluZy1hcGktY29udHJhY3QtdGVzdC1rZXkx',
+        'whsec_b2xkLXNlY3JldC1zdGlsbC12YWxpZC1mb3ItMjRo',
+      ],
+      { messageId: id, timestamp: 1_796_731_200, body },
+    );
+
+    expect(header).toBe(
+      'v1,DG80EbvLhesh12+FDtQr/fs2+qLduL5gD5+1vh2PjhI= v1,GDTa0Y76ER9+8oh/TGakjzfSMdqyHFkhfNGDGPCR9Fc=',
+    );
+  });
+});
+
 describe('contract with the official Standard Webhooks library', () => {
   const fresh = (): SignedContent => ({
     messageId: 'evt_contract',
