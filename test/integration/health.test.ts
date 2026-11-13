@@ -17,6 +17,8 @@ async function appWithDatabase(checkDatabase: () => Promise<boolean>) {
       unitOfWork: store.unitOfWork,
       repositories: store.repositories,
       checkDatabase,
+      targetPolicy: { allowPrivateNetworks: false, allowHttp: false },
+      checkHost: async () => 'public',
     },
   );
   return app;

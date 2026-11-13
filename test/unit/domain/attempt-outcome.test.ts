@@ -28,6 +28,13 @@ describe('classifyOutcome', () => {
     },
   );
 
+  it('never retries a target blocked by the SSRF protection', () => {
+    expect(classifyOutcome({ kind: 'blocked', reason: '10.0.0.1 is private' })).toBe('permanent');
+    expect(describeOutcome({ kind: 'blocked', reason: '10.0.0.1 is private' })).toBe(
+      'Blocked: 10.0.0.1 is private',
+    );
+  });
+
   it('retries timeouts and network errors (D4)', () => {
     expect(classifyOutcome({ kind: 'timeout', timeoutMs: 10_000 })).toBe('retryable');
     expect(classifyOutcome({ kind: 'network_error', message: 'ECONNREFUSED' })).toBe('retryable');

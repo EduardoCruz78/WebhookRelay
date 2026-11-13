@@ -42,7 +42,10 @@ export function registerAuthentication(app: FastifyInstance, apiKeys: ApiKeyRepo
   });
 }
 
-/** preHandler: 401 without a valid key, 403 when the key has another role. */
+/**
+ * Use as a preValidation hook: 401 without a valid key, 403 when the key has another role.
+ * (Fastify validates the body before preHandler runs, which would leak 400s to anonymous callers.)
+ */
 export function requireRole(...roles: readonly ApiKeyRole[]) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
     if (!request.principal) {

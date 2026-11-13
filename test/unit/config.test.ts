@@ -17,6 +17,8 @@ describe('loadConfig', () => {
       RUN_WORKER: false,
       DELIVERY_TIMEOUT_MS: 10_000,
       WORKER_CONCURRENCY: 5,
+      ALLOW_PRIVATE_TARGETS: false,
+      ALLOW_HTTP_TARGETS: false,
     });
   });
 

@@ -81,14 +81,37 @@ jobs:
           curl --silent --fail http://localhost:3000/health | grep -q '"status":"ok"'
 
           # Create a source API key with the CLI shipped in the image, then publish an event twice.
-          KEY=$(docker compose run --rm --no-deps migrate node dist/cli/create-api-key.js --name ci --role source --source ci-smoke 2>/dev/null)
+          create_key() {
+            docker compose run --rm --no-deps migrate node dist/cli/create-api-key.js "$@" 2>/dev/null
+          }
+          KEY=$(create_key --name ci --role source --source ci-smoke)
           EVENT='{"id":"smoke-1","type":"appointment.created","occurredAt":"2026-12-07T12:00:00Z","data":{"ok":true}}'
           publish() {
-            curl --silent --output /dev/null --write-out '%{http_code}' -X POST http://localhost:3000/events               -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' -d "$EVENT"
+            curl --silent --output /dev/null --write-out '%{http_code}' \
+              -X POST http://localhost:3000/events \
+              -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' -d "$EVENT"
           }
           test "$(publish)" = 202
           test "$(publish)" = 200
           docker compose logs worker | grep -q '"msg":"worker started"'
+
+          # Worker round trip without extra containers: a subscription pointing at the API itself.
+          # POST /health answers 404, a permanent failure, so the delivery must end up dead-lettered.
+          ADMIN=$(create_key --name ci-admin --role admin)
+          curl --silent --fail -X POST http://localhost:3000/subscriptions \
+            -H "Authorization: Bearer $ADMIN" -H 'Content-Type: application/json' \
+            -d '{"name":"smoke","channel":"webhook","target":"http://api:3000/health","eventTypes":["*"]}' \
+            > /dev/null
+          EVENT='{"id":"smoke-2","type":"appointment.created","occurredAt":"2026-12-07T12:00:00Z","data":{}}'
+          test "$(publish)" = 202
+          dead_letter() {
+            curl --silent "http://localhost:3000/deliveries?status=dead" -H "Authorization: Bearer $ADMIN"
+          }
+          for attempt in $(seq 1 30); do
+            if dead_letter | grep -q '"lastError":"HTTP 404"'; then break; fi
+            sleep 1
+          done
+          dead_letter | grep -q '"lastError":"HTTP 404"'
           echo "Smoke test passed"
 
       - name: Container logs

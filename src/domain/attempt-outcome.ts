@@ -7,7 +7,9 @@ export type AttemptOutcome =
       readonly retryAfterMs?: number;
     }
   | { readonly kind: 'timeout'; readonly timeoutMs: number }
-  | { readonly kind: 'network_error'; readonly message: string };
+  | { readonly kind: 'network_error'; readonly message: string }
+  /** Refused before sending: the target resolves to a private or reserved address (SSRF). */
+  | { readonly kind: 'blocked'; readonly reason: string };
 
 export type OutcomeClass = 'success' | 'retryable' | 'permanent';
 
@@ -21,6 +23,8 @@ export function classifyOutcome(outcome: AttemptOutcome): OutcomeClass {
     case 'timeout':
     case 'network_error':
       return 'retryable';
+    case 'blocked':
+      return 'permanent';
     case 'response': {
       const { status } = outcome;
       if (status >= 200 && status < 300) return 'success';
@@ -38,5 +42,7 @@ export function describeOutcome(outcome: AttemptOutcome): string {
       return `Timed out after ${outcome.timeoutMs} ms`;
     case 'network_error':
       return `Network error: ${outcome.message}`;
+    case 'blocked':
+      return `Blocked: ${outcome.reason}`;
   }
 }

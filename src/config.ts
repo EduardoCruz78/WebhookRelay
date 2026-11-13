@@ -24,6 +24,13 @@ const configSchema = z.object({
   DELIVERY_TIMEOUT_MS: z.coerce.number().int().min(100).max(60_000).default(10_000),
   /** Deliveries one worker process runs at the same time. */
   WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(100).default(5),
+  /**
+   * SSRF protection is on by default: targets must resolve to public addresses. Set to true only
+   * where receivers live on localhost or a private network (local development, tests).
+   */
+  ALLOW_PRIVATE_TARGETS: booleanString,
+  /** Webhook targets must use https unless this is true (local development). */
+  ALLOW_HTTP_TARGETS: booleanString,
 });
 
 export type Config = z.infer<typeof configSchema>;

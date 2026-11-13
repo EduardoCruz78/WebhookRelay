@@ -31,7 +31,13 @@ beforeAll(async () => {
     clock,
     // random 0.5: every retry waits exactly half of its backoff ceiling.
     random: () => 0.5,
-    channels: { webhook: new WebhookChannel({ timeoutMs: TIMEOUT_MS, userAgent: USER_AGENT }) },
+    channels: {
+      webhook: new WebhookChannel({
+        timeoutMs: TIMEOUT_MS,
+        userAgent: USER_AGENT,
+        allowPrivateNetworks: true,
+      }),
+    },
   };
 });
 

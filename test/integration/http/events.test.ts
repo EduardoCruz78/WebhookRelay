@@ -55,6 +55,12 @@ describe('POST /events: authentication', () => {
     expect(response.json()).toMatchObject({ status: 401, code: 'Auth.Unauthenticated' });
   });
 
+  it('checks the key before validating the body: no schema details for anonymous callers', async () => {
+    const response = await publish({ nonsense: true }, null);
+
+    expect(response.statusCode).toBe(401);
+  });
+
   it('rejects an unknown key exactly like a missing one', async () => {
     const response = await publish(body(), 'Bearer wr_not-a-real-key');
 

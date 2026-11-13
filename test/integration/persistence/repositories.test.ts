@@ -5,7 +5,7 @@ import type { Repositories } from '../../../src/application/ports.js';
 import type { Delivery } from '../../../src/domain/delivery.js';
 import type { DeliveryAttempt } from '../../../src/domain/delivery-attempt.js';
 import type { Subscription } from '../../../src/domain/subscription.js';
-import { InvalidCursorError } from '../../../src/infrastructure/db/repositories.js';
+import { InvalidCursorError } from '../../../src/application/ports.js';
 import { aDelivery, anEvent, aSubscription, minutesAfter, NOW } from '../../support/builders.js';
 import { createTestDatabase, type TestDatabase } from '../../support/database.js';
 

@@ -77,7 +77,7 @@ export const eventRoutes: FastifyPluginAsyncZod<EventRoutesOptions> = async (app
   app.post(
     '/events',
     {
-      preHandler: requireRole('source'),
+      preValidation: requireRole('source'),
       bodyLimit: 256 * 1024,
       schema: {
         tags: ['events'],
@@ -118,7 +118,7 @@ export const eventRoutes: FastifyPluginAsyncZod<EventRoutesOptions> = async (app
   app.get(
     '/events/:id',
     {
-      preHandler: requireRole('admin', 'source'),
+      preValidation: requireRole('admin', 'source'),
       schema: {
         tags: ['events'],
         summary: 'An event and its deliveries',

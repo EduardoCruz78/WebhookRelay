@@ -1,14 +1,15 @@
 import { and, arrayOverlaps, asc, desc, eq, gt, isNull, or, sql, type SQL } from 'drizzle-orm';
 
-import type {
-  ApiKeyRepository,
-  DeliveryAttemptRepository,
-  DeliveryListFilter,
-  DeliveryRepository,
-  EventRepository,
-  Page,
-  Repositories,
-  SubscriptionRepository,
+import {
+  InvalidCursorError,
+  type ApiKeyRepository,
+  type DeliveryAttemptRepository,
+  type DeliveryListFilter,
+  type DeliveryRepository,
+  type EventRepository,
+  type Page,
+  type Repositories,
+  type SubscriptionRepository,
 } from '../../application/ports.js';
 import type { ApiKey } from '../../domain/api-key.js';
 import type { Delivery, DeliveryStatus } from '../../domain/delivery.js';
@@ -187,10 +188,6 @@ function decodeCursor(cursor: string): { createdAt: Date; id: string } | undefin
     // Malformed cursors are reported as undefined and rejected by the caller.
   }
   return undefined;
-}
-
-export class InvalidCursorError extends Error {
-  override readonly name = 'InvalidCursorError';
 }
 
 class DrizzleDeliveryRepository implements DeliveryRepository {

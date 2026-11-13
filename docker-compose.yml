@@ -37,6 +37,10 @@ services:
     environment:
       DATABASE_URL: postgres://webhook_relay:webhook_relay@db:5432/webhook_relay
       NODE_ENV: production
+      # Local development: receivers may run on this machine or the Docker network, over http.
+      # Never set these in a real deployment: they turn the SSRF protection off.
+      ALLOW_PRIVATE_TARGETS: 'true'
+      ALLOW_HTTP_TARGETS: 'true'
       PORT: '3000'
       LOG_LEVEL: info
     ports:
@@ -60,6 +64,8 @@ services:
       DATABASE_URL: postgres://webhook_relay:webhook_relay@db:5432/webhook_relay
       NODE_ENV: production
       LOG_LEVEL: info
+      ALLOW_PRIVATE_TARGETS: 'true'
+      ALLOW_HTTP_TARGETS: 'true'
     stop_grace_period: 30s
 
 volumes:

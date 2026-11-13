@@ -8,6 +8,7 @@ import type { Channels } from './application/ports.js';
 import type { Config } from './config.js';
 import type { Clock, RandomSource } from './domain/clock.js';
 import type { AppDependencies } from './http/app.js';
+import { checkHost } from './infrastructure/channels/ssrf.js';
 import { WebhookChannel } from './infrastructure/channels/webhook.js';
 import { Database } from './infrastructure/db/database.js';
 import { runMigrations } from './infrastructure/db/migrate.js';
@@ -28,6 +29,8 @@ export type RuntimeConfig = Pick<
   | 'MIGRATE_ON_START'
   | 'DELIVERY_TIMEOUT_MS'
   | 'WORKER_CONCURRENCY'
+  | 'ALLOW_PRIVATE_TARGETS'
+  | 'ALLOW_HTTP_TARGETS'
 >;
 
 export interface RuntimeOverrides {
@@ -64,7 +67,11 @@ export async function createRuntime(
     repositories: database.repositories,
     unitOfWork,
     channels: overrides.channels ?? {
-      webhook: new WebhookChannel({ timeoutMs: config.DELIVERY_TIMEOUT_MS, userAgent: USER_AGENT }),
+      webhook: new WebhookChannel({
+        timeoutMs: config.DELIVERY_TIMEOUT_MS,
+        userAgent: USER_AGENT,
+        allowPrivateNetworks: config.ALLOW_PRIVATE_TARGETS,
+      }),
     },
     clock,
     random: overrides.random ?? systemRandom,
@@ -84,6 +91,11 @@ export async function createRuntime(
         await database.pool.query('SELECT 1');
         return true;
       },
+      targetPolicy: {
+        allowPrivateNetworks: config.ALLOW_PRIVATE_TARGETS,
+        allowHttp: config.ALLOW_HTTP_TARGETS,
+      },
+      checkHost,
     },
     async startWorker(onDelivered) {
       await startDeliveryWorker(

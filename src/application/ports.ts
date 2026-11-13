@@ -47,6 +47,11 @@ export interface DeliveryListFilter {
   readonly cursor?: string;
 }
 
+/** Thrown by DeliveryRepository.list for a cursor it did not issue. */
+export class InvalidCursorError extends Error {
+  override readonly name = 'InvalidCursorError';
+}
+
 export interface Page<T> {
   readonly items: T[];
   readonly nextCursor: string | null;
@@ -129,3 +134,6 @@ export interface DeliveryChannel {
 }
 
 export type Channels = Partial<Record<Channel, DeliveryChannel>>;
+
+/** Registration-time DNS check of a webhook host (SSRF): every resolved address must be public. */
+export type HostChecker = (hostname: string) => Promise<'public' | 'not_public' | 'unresolvable'>;

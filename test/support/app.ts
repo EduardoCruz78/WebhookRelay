@@ -41,6 +41,9 @@ export async function createTestApp(options: TestAppOptions = {}): Promise<TestA
       MIGRATE_ON_START: false,
       DELIVERY_TIMEOUT_MS: options.deliveryTimeoutMs ?? 1_000,
       WORKER_CONCURRENCY: 2,
+      // Fake receivers listen on 127.0.0.1 over http.
+      ALLOW_PRIVATE_TARGETS: true,
+      ALLOW_HTTP_TARGETS: true,
     },
     (error) => {
       throw error;

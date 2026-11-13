@@ -5,13 +5,16 @@ import {
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
 
-import type { Repositories, UnitOfWork } from '../application/ports.js';
+import type { HostChecker, Repositories, UnitOfWork } from '../application/ports.js';
 import type { Config } from '../config.js';
 import type { Clock } from '../domain/clock.js';
+import type { TargetPolicy } from '../domain/subscription.js';
 import { registerAuthentication } from './auth.js';
 import { errorHandler, notFoundHandler } from './problem.js';
+import { deliveryRoutes } from './routes/deliveries.js';
 import { eventRoutes } from './routes/events.js';
 import { healthRoutes } from './routes/health.js';
+import { subscriptionRoutes } from './routes/subscriptions.js';
 
 export interface AppDependencies {
   readonly clock: Clock;
@@ -19,6 +22,8 @@ export interface AppDependencies {
   readonly unitOfWork: UnitOfWork;
   readonly repositories: Repositories;
   readonly checkDatabase: () => Promise<boolean>;
+  readonly targetPolicy: TargetPolicy;
+  readonly checkHost: HostChecker;
 }
 
 export async function buildApp(
@@ -44,6 +49,21 @@ export async function buildApp(
   await app.register(eventRoutes, {
     ingest: { unitOfWork: deps.unitOfWork, clock: deps.clock, newId: deps.newId },
     repositories: deps.repositories,
+  });
+  await app.register(subscriptionRoutes, {
+    deps: {
+      unitOfWork: deps.unitOfWork,
+      clock: deps.clock,
+      newId: deps.newId,
+      targetPolicy: deps.targetPolicy,
+      checkHost: deps.checkHost,
+    },
+    repositories: deps.repositories,
+  });
+  await app.register(deliveryRoutes, {
+    repositories: deps.repositories,
+    unitOfWork: deps.unitOfWork,
+    clock: deps.clock,
   });
 
   return app;

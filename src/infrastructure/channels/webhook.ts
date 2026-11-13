@@ -9,12 +9,18 @@ import { RESPONSE_SNIPPET_MAX_BYTES, truncateUtf8 } from '../../domain/delivery-
 import { parseRetryAfter } from '../../domain/retry-policy.js';
 import { signatureHeader } from '../../domain/signature.js';
 import { toWebhookMessage } from '../../domain/webhook-message.js';
+import { BlockedAddressError, blockedLiteral, createPublicOnlyAgent } from './ssrf.js';
 
 export interface WebhookChannelOptions {
   /** D3: no 2xx within this time is a failure (and a retryable one). */
   readonly timeoutMs: number;
   readonly userAgent: string;
-  /** Lets M5 plug in an SSRF-safe agent that checks the resolved IP of every connection. */
+  /**
+   * False in production: only public addresses are reachable (SSRF protection). True for local
+   * development and tests, where receivers run on localhost or a Docker network.
+   */
+  readonly allowPrivateNetworks: boolean;
+  /** Overrides the HTTP agent (tests). Defaults to an agent that refuses non-public addresses. */
   readonly dispatcher?: Dispatcher;
 }
 
@@ -26,7 +32,12 @@ export interface WebhookChannelOptions {
  * Redirects are not followed: undici's request() does not follow them unless asked to.
  */
 export class WebhookChannel implements DeliveryChannel {
-  constructor(private readonly options: WebhookChannelOptions) {}
+  private readonly dispatcher: Dispatcher | undefined;
+
+  constructor(private readonly options: WebhookChannelOptions) {
+    this.dispatcher =
+      options.dispatcher ?? (options.allowPrivateNetworks ? undefined : createPublicOnlyAgent());
+  }
 
   async send({ event, subscription, secrets, now }: OutgoingMessage): Promise<ChannelResult> {
     const body = JSON.stringify(toWebhookMessage(event));
@@ -39,6 +50,17 @@ export class WebhookChannel implements DeliveryChannel {
       'webhook-signature': signatureHeader(secrets, { messageId: event.id, timestamp, body }),
     };
 
+    if (!this.options.allowPrivateNetworks) {
+      const literal = blockedLiteral(new URL(subscription.target));
+      if (literal) {
+        return {
+          outcome: { kind: 'blocked', reason: `${literal} is not a public address` },
+          responseSnippet: null,
+          durationMs: 0,
+        };
+      }
+    }
+
     const started = performance.now();
     const elapsed = () => Math.round(performance.now() - started);
     try {
@@ -48,7 +70,7 @@ export class WebhookChannel implements DeliveryChannel {
         body,
         // One deadline for connecting, sending and reading the response.
         signal: AbortSignal.timeout(this.options.timeoutMs),
-        ...(this.options.dispatcher && { dispatcher: this.options.dispatcher }),
+        ...(this.dispatcher && { dispatcher: this.dispatcher }),
       });
       const snippet = await readSnippet(response.body);
       const retryAfterHeader = response.headers['retry-after'];
@@ -72,6 +94,8 @@ export class WebhookChannel implements DeliveryChannel {
 }
 
 function toFailure(error: unknown, timeoutMs: number): AttemptOutcome {
+  const blocked = findBlocked(error);
+  if (blocked) return { kind: 'blocked', reason: blocked.message };
   if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
     return { kind: 'timeout', timeoutMs };
   }
@@ -97,4 +121,16 @@ async function readSnippet(body: Readable): Promise<string | null> {
   body.destroy();
   if (size === 0) return null;
   return truncateUtf8(Buffer.concat(chunks).toString('utf8'), RESPONSE_SNIPPET_MAX_BYTES);
+}
+
+/** undici may wrap the lookup error (in `cause`, or in an AggregateError when trying several IPs). */
+function findBlocked(error: unknown, depth = 0): BlockedAddressError | undefined {
+  if (error instanceof BlockedAddressError) return error;
+  if (depth > 3 || !(error instanceof Error)) return undefined;
+  const nested: unknown[] = error instanceof AggregateError ? (error.errors as unknown[]) : [];
+  for (const candidate of [error.cause, ...nested]) {
+    const found = findBlocked(candidate, depth + 1);
+    if (found) return found;
+  }
+  return undefined;
 }
