@@ -103,6 +103,18 @@ describe('OpenAPI', () => {
     expect(spec.paths['/health']?.get?.security).toEqual([]);
   });
 
+  it('has no dangling $ref, so code generators can read it', async () => {
+    const response = await t.app.inject('/openapi.json');
+    const spec = response.json<{ components: { schemas?: Record<string, unknown> } }>();
+
+    const prefix = '#/components/schemas/';
+    const refs = [...response.body.matchAll(/"\$ref":"([^"]+)"/g)].map((m) => m[1] ?? '');
+    for (const ref of new Set(refs)) {
+      expect(ref.startsWith(prefix), ref).toBe(true);
+      expect(spec.components.schemas, `missing ${ref}`).toHaveProperty(ref.slice(prefix.length));
+    }
+  });
+
   it('serves the Scalar reference at /docs', async () => {
     const response = await t.app.inject('/docs/');
 
