@@ -8,6 +8,11 @@ import { isValidEventType, type Event } from '../../domain/event.js';
 import { requireRole } from '../auth.js';
 import type { Metrics } from '../../infrastructure/observability/metrics.js';
 import { HttpProblem } from '../problem.js';
+import type { JsonObject } from '../../domain/json.js';
+
+// The body is parsed JSON already, so every value in `data` is JSON. z.unknown() says the same without
+// z.json()'s recursive schema, which the OpenAPI generator emitted as a dangling $ref (schema0).
+const eventData = z.record(z.string(), z.unknown()) as z.ZodType<JsonObject>;
 
 const ingestBody = z.object({
   id: z
@@ -20,7 +25,7 @@ const ingestBody = z.object({
     .string()
     .refine(isValidEventType, 'Must look like "appointment.created": lowercase, dot-separated.'),
   occurredAt: z.iso.datetime({ offset: true }),
-  data: z.record(z.string(), z.json()),
+  data: eventData,
 });
 
 const eventSummary = z.object({
@@ -47,7 +52,7 @@ const deliverySummary = z.object({
 });
 
 const eventDetail = eventSummary.extend({
-  data: z.record(z.string(), z.json()),
+  data: eventData,
   deliveries: z.array(deliverySummary),
 });
 
