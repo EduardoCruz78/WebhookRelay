@@ -18,6 +18,10 @@ the [SchedulingApi demo](https://scheduling-api-gf47.onrender.com/scalar): booki
 the public demo shows the API reference, `/health` and `/openapi.json`. Free plan: the first request
 after 15 idle minutes can take about 50 seconds, and scheduled retries wait until the service wakes up.
 
+**Admin dashboard:** [SchedulingDashboard](https://github.com/EduardoCruz78/SchedulingDashboard) (portfolio project 3,
+Next.js), live at <https://scheduling-dashboard-brown.vercel.app>, lists this relay's deliveries and attempts
+and is itself a subscriber: it verifies the signed `appointment.*` webhooks and shows them in a live feed.
+
 ```mermaid
 sequenceDiagram
     actor Customer
@@ -149,7 +153,7 @@ npm run check      # lint, format check, typecheck, build and all tests
 ./e2e/run.sh       # both projects together (needs a SchedulingApi checkout next to this one)
 ```
 
-**355 tests** (247 unit, 108 integration), all run in CI on every push. The count includes every
+**356 tests** (247 unit, 109 integration), all run in CI on every push. The count includes every
 case of parameterized tests (each blocked IP range, each HTTP status class).
 
 | Kind        | What it covers                                                                                                                                                                                                                                                                                                                                                 |
@@ -187,7 +191,6 @@ Prettier, Docker, GitHub Actions. Deployed to Render + Neon from [render.yaml](r
 - Encrypt subscription secrets at rest (envelope encryption).
 - Per-destination rate limiting and a circuit breaker for receivers that keep failing.
 - Retention jobs for old events and attempts.
-- Admin dashboard (portfolio project 3, Next.js) showing deliveries and the dead-letter queue.
 
 ## License
 
@@ -211,11 +214,13 @@ Destaques:
 - **Proteção contra SSRF em três camadas**, inclusive contra _DNS rebinding_.
 - **Workers escaláveis** (`FOR UPDATE SKIP LOCKED`) e **desligamento gracioso** testado com uma
   entrega em andamento.
-- **355 testes** (247 unitários, 108 de integração com PostgreSQL real), contrato de assinatura
+- **356 testes** (247 unitários, 109 de integração com PostgreSQL real), contrato de assinatura
   testado também em C#, métricas Prometheus e documentação OpenAPI gerada a partir dos schemas.
 
 Demo online: <https://webhook-relay-1odf.onrender.com/docs>, ligada à demo da SchedulingApi (plano
-gratuito: a primeira requisição depois de um tempo parado pode levar uns 50 segundos).
+gratuito: a primeira requisição depois de um tempo parado pode levar uns 50 segundos). O painel
+administrativo ([SchedulingDashboard](https://github.com/EduardoCruz78/SchedulingDashboard), projeto 3) está em
+<https://scheduling-dashboard-brown.vercel.app> e recebe os webhooks deste relay.
 
 Para rodar: `docker compose up --build` e abrir <http://localhost:3000/docs>.
 
