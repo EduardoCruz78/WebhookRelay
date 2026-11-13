@@ -131,6 +131,21 @@ function retryDelayMs(
   return nextDelayMs(attempts, random, policy);
 }
 
+/**
+ * Dead-letters a delivery without attempting it, when attempting is pointless: the subscription
+ * was deactivated or deleted, or its channel is not configured. A replay can retry it later.
+ */
+export function abandon(delivery: Delivery, reason: string, now: Date): Result<Delivery> {
+  if (isFinal(delivery.status)) return err(DeliveryErrors.notDeliverable(delivery.status));
+  return ok({
+    ...delivery,
+    status: 'dead',
+    nextAttemptAt: null,
+    lastError: reason,
+    updatedAt: now,
+  });
+}
+
 /** D6: a dead delivery can be sent again manually, with a fresh retry budget. */
 export function replay(delivery: Delivery, now: Date): Result<Delivery> {
   if (delivery.status !== 'dead') return err(DeliveryErrors.notDead(delivery.status));

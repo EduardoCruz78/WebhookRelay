@@ -48,5 +48,19 @@ services:
       timeout: 3s
       retries: 10
 
+  # Same image, different command: consumes the queue and delivers. Scale it with
+  # `docker compose up --scale worker=3`; pg-boss hands each job to exactly one of them.
+  worker:
+    build: .
+    command: ['node', 'dist/worker.js']
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://webhook_relay:webhook_relay@db:5432/webhook_relay
+      NODE_ENV: production
+      LOG_LEVEL: info
+    stop_grace_period: 30s
+
 volumes:
   pgdata:

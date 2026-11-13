@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { AttemptOutcome } from '../../../src/domain/attempt-outcome.js';
-import { recordAttempt, replay, type Delivery } from '../../../src/domain/delivery.js';
+import { abandon, recordAttempt, replay, type Delivery } from '../../../src/domain/delivery.js';
 import type { Result } from '../../../src/domain/result.js';
 import { DEFAULT_RETRY_POLICY } from '../../../src/domain/retry-policy.js';
 import { aDelivery, minutesAfter, NOW } from '../../support/builders.js';
@@ -156,4 +156,26 @@ describe('replay (D6)', () => {
       expect(result).toMatchObject({ ok: false, error: { code: 'Delivery.NotDead' } });
     },
   );
+});
+
+describe('abandon', () => {
+  it('dead-letters a pending or failed delivery with the reason, without counting an attempt', () => {
+    const delivery = unwrap(
+      abandon(aDelivery({ status: 'failed', attempts: 2 }), 'Subscription is inactive', NOW),
+    );
+
+    expect(delivery).toMatchObject({
+      status: 'dead',
+      attempts: 2,
+      nextAttemptAt: null,
+      lastError: 'Subscription is inactive',
+    });
+  });
+
+  it.each(['succeeded', 'dead'] as const)('refuses to abandon a %s delivery', (status) => {
+    expect(abandon(aDelivery({ status }), 'reason', NOW)).toMatchObject({
+      ok: false,
+      error: { code: 'Delivery.NotDeliverable' },
+    });
+  });
 });

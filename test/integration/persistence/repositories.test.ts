@@ -230,9 +230,24 @@ describe('DeliveryRepository', () => {
       updatedAt: minutesAfter(NOW, 0.5),
     };
 
-    await repos.deliveries.update(failed);
+    const saved = await repos.deliveries.update(failed, { status: 'pending', attempts: 0 });
 
+    expect(saved).toBe(true);
     expect(await repos.deliveries.findById(delivery.id)).toEqual(failed);
+  });
+
+  it('refuses a stale update (optimistic concurrency)', async () => {
+    const event = await givenEvent();
+    const subscription = await givenSubscription();
+    const [delivery] = await repos.deliveries.insertMany([deliveryFor(event.id, subscription.id)]);
+    if (!delivery) throw new Error('not inserted');
+    const first = { ...delivery, status: 'failed' as const, attempts: 1 };
+    const second = { ...delivery, status: 'succeeded' as const, attempts: 1 };
+
+    // Two workers both read the pending delivery; only the first save wins.
+    expect(await repos.deliveries.update(first, { status: 'pending', attempts: 0 })).toBe(true);
+    expect(await repos.deliveries.update(second, { status: 'pending', attempts: 0 })).toBe(false);
+    expect((await repos.deliveries.findById(delivery.id))?.status).toBe('failed');
   });
 
   it('rejects an unknown status at the database level', async () => {

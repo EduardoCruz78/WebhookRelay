@@ -14,6 +14,9 @@ describe('loadConfig', () => {
       DATABASE_URL,
       DATABASE_POOL_SIZE: 10,
       MIGRATE_ON_START: false,
+      RUN_WORKER: false,
+      DELIVERY_TIMEOUT_MS: 10_000,
+      WORKER_CONCURRENCY: 5,
     });
   });
 

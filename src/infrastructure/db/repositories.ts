@@ -11,7 +11,7 @@ import type {
   SubscriptionRepository,
 } from '../../application/ports.js';
 import type { ApiKey } from '../../domain/api-key.js';
-import type { Delivery } from '../../domain/delivery.js';
+import type { Delivery, DeliveryStatus } from '../../domain/delivery.js';
 import type { DeliveryAttempt } from '../../domain/delivery-attempt.js';
 import type { Event } from '../../domain/event.js';
 import { patternsMatching, type Subscription } from '../../domain/subscription.js';
@@ -206,8 +206,11 @@ class DrizzleDeliveryRepository implements DeliveryRepository {
     return rows.map(toDelivery);
   }
 
-  async update(delivery: Delivery): Promise<void> {
-    await this.db
+  async update(
+    delivery: Delivery,
+    expected: { status: DeliveryStatus; attempts: number },
+  ): Promise<boolean> {
+    const rows = await this.db
       .update(deliveries)
       .set({
         status: delivery.status,
@@ -216,7 +219,15 @@ class DrizzleDeliveryRepository implements DeliveryRepository {
         lastError: delivery.lastError,
         updatedAt: delivery.updatedAt,
       })
-      .where(eq(deliveries.id, delivery.id));
+      .where(
+        and(
+          eq(deliveries.id, delivery.id),
+          eq(deliveries.status, expected.status),
+          eq(deliveries.attempts, expected.attempts),
+        ),
+      )
+      .returning({ id: deliveries.id });
+    return rows.length === 1;
   }
 
   async findById(id: string): Promise<Delivery | undefined> {

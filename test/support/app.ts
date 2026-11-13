@@ -6,6 +6,7 @@ import { generateApiKey, hashApiKey, type ApiKeyRole } from '../../src/domain/ap
 import { buildApp } from '../../src/http/app.js';
 import { DELIVERY_QUEUE } from '../../src/infrastructure/queue/delivery-queue.js';
 import { NOW } from './builders.js';
+import type { Clock, RandomSource } from '../../src/domain/clock.js';
 import { FakeClock } from './fakes.js';
 import { createTestDatabase, type TestDatabase } from './database.js';
 
@@ -13,7 +14,7 @@ export interface TestApp {
   readonly app: FastifyInstance;
   readonly runtime: Runtime;
   readonly testDb: TestDatabase;
-  readonly clock: FakeClock;
+  readonly clock: Clock;
   /** Creates an API key and returns the `Authorization` header value for it. */
   bearer(role: ApiKeyRole, source?: string): Promise<string>;
   /** Jobs waiting in the pg-boss delivery queue. */
@@ -22,16 +23,33 @@ export interface TestApp {
   close(): Promise<void>;
 }
 
-/** The real application (Fastify + PostgreSQL + pg-boss) on a fresh database, with a fake clock. */
-export async function createTestApp(): Promise<TestApp> {
+export interface TestAppOptions {
+  /** Defaults to a FakeClock frozen at NOW. Pass systemClock when a real worker must pick jobs up. */
+  readonly clock?: Clock;
+  readonly deliveryTimeoutMs?: number;
+  readonly random?: RandomSource;
+}
+
+/** The real application (Fastify + PostgreSQL + pg-boss) on a fresh database. */
+export async function createTestApp(options: TestAppOptions = {}): Promise<TestApp> {
   const testDb = await createTestDatabase();
-  const clock = new FakeClock(NOW);
+  const clock = options.clock ?? new FakeClock(NOW);
   const runtime = await createRuntime(
-    { DATABASE_URL: testDb.url, DATABASE_POOL_SIZE: 5, MIGRATE_ON_START: false },
+    {
+      DATABASE_URL: testDb.url,
+      DATABASE_POOL_SIZE: 5,
+      MIGRATE_ON_START: false,
+      DELIVERY_TIMEOUT_MS: options.deliveryTimeoutMs ?? 1_000,
+      WORKER_CONCURRENCY: 2,
+    },
     (error) => {
       throw error;
     },
-    clock,
+    {
+      clock,
+      pollingIntervalSeconds: 0.5,
+      ...(options.random && { random: options.random }),
+    },
   );
   const app = await buildApp({ LOG_LEVEL: 'silent' }, runtime.app);
 

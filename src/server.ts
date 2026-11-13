@@ -7,6 +7,11 @@ const runtime = await createRuntime(config, (error) => {
   app.log.error({ err: error }, 'queue error');
 });
 const app = await buildApp(config, runtime.app);
+if (config.RUN_WORKER) {
+  // Free-tier demo: one process serves HTTP and delivers. Production runs `node dist/worker.js` apart.
+  await runtime.startWorker();
+  app.log.info('delivery worker running in the web process');
+}
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {

@@ -162,8 +162,11 @@ class FakeDeliveries implements DeliveryRepository {
     }
     return inserted;
   }
-  async update(delivery: Delivery) {
+  async update(delivery: Delivery, expected: { status: Delivery['status']; attempts: number }) {
+    const current = this.store.state.deliveries.get(delivery.id);
+    if (current?.status !== expected.status || current.attempts !== expected.attempts) return false;
     this.store.state.deliveries.set(delivery.id, delivery);
+    return true;
   }
   async findById(id: string) {
     return this.store.state.deliveries.get(id);

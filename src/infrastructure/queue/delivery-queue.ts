@@ -51,3 +51,34 @@ export class PgBossDeliveryQueue implements DeliveryQueue {
     );
   }
 }
+
+export interface DeliveryWorkerOptions {
+  /** Deliveries this process runs at the same time. */
+  readonly concurrency: number;
+  readonly pollingIntervalSeconds?: number;
+}
+
+/**
+ * Consumes the delivery queue. pg-boss fetches jobs with FOR UPDATE SKIP LOCKED, so any number of
+ * worker processes can poll the same queue without two of them taking the same job.
+ * A handler that throws (database down, bug) fails the job and pg-boss re-runs it later.
+ */
+export async function startDeliveryWorker(
+  boss: PgBoss,
+  handle: (deliveryId: string) => Promise<void>,
+  options: DeliveryWorkerOptions,
+): Promise<string> {
+  return boss.work<DeliveryJobData>(
+    DELIVERY_QUEUE,
+    {
+      batchSize: 1,
+      localConcurrency: options.concurrency,
+      ...(options.pollingIntervalSeconds !== undefined && {
+        pollingIntervalSeconds: options.pollingIntervalSeconds,
+      }),
+    },
+    async (jobs) => {
+      for (const job of jobs) await handle(job.data.deliveryId);
+    },
+  );
+}

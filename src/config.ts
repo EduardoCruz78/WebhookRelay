@@ -18,6 +18,12 @@ const configSchema = z.object({
   DATABASE_POOL_SIZE: z.coerce.number().int().min(1).max(100).default(10),
   /** Demo convenience: apply migrations at startup. Production runs them as a separate step. */
   MIGRATE_ON_START: booleanString,
+  /** Free-tier demo: run the delivery worker inside the web process instead of a separate one. */
+  RUN_WORKER: booleanString,
+  /** D3: a destination has this long to answer with a 2xx. */
+  DELIVERY_TIMEOUT_MS: z.coerce.number().int().min(100).max(60_000).default(10_000),
+  /** Deliveries one worker process runs at the same time. */
+  WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(100).default(5),
 });
 
 export type Config = z.infer<typeof configSchema>;

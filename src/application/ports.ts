@@ -1,9 +1,10 @@
 import type { ApiKey } from '../domain/api-key.js';
 import type { Delivery, DeliveryStatus } from '../domain/delivery.js';
 import type { DeliveryAttempt } from '../domain/delivery-attempt.js';
+import type { AttemptOutcome } from '../domain/attempt-outcome.js';
 import type { Event } from '../domain/event.js';
 import type { SigningSecret } from '../domain/signature.js';
-import type { Subscription } from '../domain/subscription.js';
+import type { Channel, Subscription } from '../domain/subscription.js';
 
 /**
  * Ports: what the use cases need from persistence, without knowing it is PostgreSQL + Drizzle.
@@ -54,7 +55,14 @@ export interface Page<T> {
 export interface DeliveryRepository {
   /** Inserts deliveries, skipping any (event, subscription) pair that already exists. Returns the inserted ones. */
   insertMany(deliveries: readonly Delivery[]): Promise<Delivery[]>;
-  update(delivery: Delivery): Promise<void>;
+  /**
+   * Saves a new state only if the stored one still has the expected status and attempt count
+   * (optimistic concurrency). Returns false when another worker got there first.
+   */
+  update(
+    delivery: Delivery,
+    expected: { status: DeliveryStatus; attempts: number },
+  ): Promise<boolean>;
   findById(id: string): Promise<Delivery | undefined>;
   list(filter: DeliveryListFilter): Promise<Page<Delivery>>;
 }
@@ -98,3 +106,26 @@ export interface TransactionContext {
 export interface UnitOfWork {
   run<T>(work: (tx: TransactionContext) => Promise<T>): Promise<T>;
 }
+
+/** Everything a channel needs to hand one event to one subscription. */
+export interface OutgoingMessage {
+  readonly event: Event;
+  readonly subscription: Subscription;
+  /** Signing secrets valid now (two during a rotation's grace period). */
+  readonly secrets: readonly string[];
+  readonly now: Date;
+}
+
+export interface ChannelResult {
+  readonly outcome: AttemptOutcome;
+  /** Start of the destination's response body (at most 1 KB), for debugging. */
+  readonly responseSnippet: string | null;
+  readonly durationMs: number;
+}
+
+/** A way of delivering: webhook (HTTP), e-mail or Telegram. Never throws for delivery failures. */
+export interface DeliveryChannel {
+  send(message: OutgoingMessage): Promise<ChannelResult>;
+}
+
+export type Channels = Partial<Record<Channel, DeliveryChannel>>;
