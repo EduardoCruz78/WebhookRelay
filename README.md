@@ -180,7 +180,7 @@ manage the rest. Errors are RFC 9457 problem details with a stable `code`.
 
 Node.js 24, TypeScript (strict, ESM), Fastify, Zod, PostgreSQL 17, Drizzle ORM, pg-boss, undici,
 nodemailer, pino, prom-client, Vitest, Testcontainers, ESLint (typescript-eslint strict type-checked),
-Prettier, Docker, GitHub Actions. Deploy blueprint for Render + Neon in [render.yaml](render.yaml).
+Prettier, Docker, GitHub Actions. Deployed to Render + Neon from [render.yaml](render.yaml): every push to `main` redeploys the demo.
 
 ## Roadmap
 
