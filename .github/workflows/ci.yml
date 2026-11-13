@@ -161,7 +161,7 @@ jobs:
       - name: Book an appointment and receive the signed webhook
         env:
           SCHEDULING_API_DIR: ${{ github.workspace }}/scheduling-api
-        run: ./e2e/run.sh
+        run: bash e2e/run.sh
 
       - name: Service logs
         if: failure()
