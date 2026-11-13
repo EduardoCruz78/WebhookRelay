@@ -24,5 +24,56 @@ export default defineConfig(
       'no-console': 'error',
     },
   },
+  // Dependency rule (Clean Architecture): domain depends on nothing; application depends only on domain.
+  {
+    files: ['src/domain/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/application/**', '**/infrastructure/**', '**/http/**', '**/config.js'],
+              message: 'The domain must not depend on outer layers.',
+            },
+            {
+              group: [
+                'fastify*',
+                '@fastify/*',
+                'drizzle-orm*',
+                'pg',
+                'pg-boss',
+                'undici',
+                'pino*',
+                'zod*',
+              ],
+              message: 'The domain must stay free of frameworks and I/O libraries.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/application/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/infrastructure/**', '**/http/**'],
+              message:
+                'The application layer talks to infrastructure only through ports (interfaces).',
+            },
+            {
+              group: ['fastify*', '@fastify/*', 'drizzle-orm*', 'pg', 'pg-boss', 'undici'],
+              message: 'The application layer must not depend on frameworks or drivers.',
+            },
+          ],
+        },
+      ],
+    },
+  },
   prettier,
 );
