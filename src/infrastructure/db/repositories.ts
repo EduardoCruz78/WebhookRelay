@@ -285,6 +285,13 @@ class DrizzleApiKeyRepository implements ApiKeyRepository {
     await this.db.insert(apiKeys).values(apiKey);
   }
 
+  async revokeByName(name: string, now: Date): Promise<void> {
+    await this.db
+      .update(apiKeys)
+      .set({ revokedAt: now })
+      .where(and(eq(apiKeys.name, name), isNull(apiKeys.revokedAt)));
+  }
+
   async findActiveByHash(keyHash: string): Promise<ApiKey | undefined> {
     const [row] = await this.db
       .select()

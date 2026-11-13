@@ -86,6 +86,13 @@ class FakeApiKeys implements ApiKeyRepository {
   async insert(apiKey: ApiKey) {
     this.store.state.apiKeys.set(apiKey.id, apiKey);
   }
+  async revokeByName(name: string, now: Date) {
+    for (const [id, key] of this.store.state.apiKeys) {
+      if (key.name === name && key.revokedAt === null) {
+        this.store.state.apiKeys.set(id, { ...key, revokedAt: now });
+      }
+    }
+  }
   async findActiveByHash(keyHash: string) {
     return [...this.store.state.apiKeys.values()].find(
       (key) => key.keyHash === keyHash && key.revokedAt === null,

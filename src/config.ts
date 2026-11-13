@@ -47,6 +47,16 @@ const configSchema = z.object({
   METRICS_TOKEN: z.string().min(16).optional(),
   /** The standalone worker serves /metrics and /health on this port. */
   WORKER_METRICS_PORT: z.coerce.number().int().min(1).max(65_535).default(9091),
+  /**
+   * Keys created at startup from the environment, for hosts without a shell to run the CLI.
+   * Each is stored as a SHA-256 hash; changing a value rotates that key.
+   */
+  BOOTSTRAP_ADMIN_KEY: z.string().min(32).optional(),
+  BOOTSTRAP_SOURCE: z
+    .string()
+    .regex(/^[a-z][a-z0-9-]{1,62}$/)
+    .default('scheduling-api'),
+  BOOTSTRAP_SOURCE_KEY: z.string().min(32).optional(),
 });
 
 export type Config = z.infer<typeof configSchema>;

@@ -3,6 +3,7 @@ import { randomInt } from 'node:crypto';
 import type { PgBoss } from 'pg-boss';
 
 import { deliver, type DeliverDeps, type DeliverOutcome } from './application/deliver.js';
+import { ensureBootstrapKeys } from './application/bootstrap-keys.js';
 import { newId } from './application/ids.js';
 import type { Channels } from './application/ports.js';
 import type { Config } from './config.js';
@@ -42,7 +43,8 @@ export type RuntimeConfig = Pick<
   | 'EMAIL_FROM'
   | 'TELEGRAM_BOT_TOKEN'
   | 'TELEGRAM_API_URL'
->;
+> &
+  Partial<Pick<Config, 'BOOTSTRAP_ADMIN_KEY' | 'BOOTSTRAP_SOURCE' | 'BOOTSTRAP_SOURCE_KEY'>>;
 
 export interface RuntimeOverrides {
   readonly clock?: Clock;
@@ -78,6 +80,23 @@ export async function createRuntime(
   if (config.MIGRATE_ON_START) await runMigrations(database.db);
   const boss = await startBoss(config.DATABASE_URL, onError);
   const unitOfWork = new PgUnitOfWork(database, boss);
+  await ensureBootstrapKeys(
+    [
+      ...(config.BOOTSTRAP_ADMIN_KEY
+        ? [{ role: 'admin' as const, source: null, key: config.BOOTSTRAP_ADMIN_KEY }]
+        : []),
+      ...(config.BOOTSTRAP_SOURCE_KEY
+        ? [
+            {
+              role: 'source' as const,
+              source: config.BOOTSTRAP_SOURCE ?? 'scheduling-api',
+              key: config.BOOTSTRAP_SOURCE_KEY,
+            },
+          ]
+        : []),
+    ],
+    { unitOfWork, now: clock.now(), newId },
+  );
   const metrics = new Metrics(async () => {
     const { rows } = await database.pool.query<{ state: string; count: number }>(
       `SELECT state, count(*)::int AS count FROM pgboss.job

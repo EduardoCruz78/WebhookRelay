@@ -22,6 +22,7 @@ describe('loadConfig', () => {
       EMAIL_FROM: 'WebhookRelay <relay@localhost>',
       TELEGRAM_API_URL: 'https://api.telegram.org',
       WORKER_METRICS_PORT: 9091,
+      BOOTSTRAP_SOURCE: 'scheduling-api',
     });
   });
 

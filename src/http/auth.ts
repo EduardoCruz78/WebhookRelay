@@ -17,7 +17,8 @@ declare module 'fastify' {
   }
 }
 
-const BEARER = /^Bearer ([A-Za-z0-9_-]{1,200})$/;
+/** RFC 6750 b64token: also accepts base64 values such as the ones Render generates. */
+const BEARER = /^Bearer ([A-Za-z0-9._~+/-]{1,200}=*)$/;
 
 /**
  * Resolves `Authorization: Bearer <key>` to a principal on every request. Routes then declare who

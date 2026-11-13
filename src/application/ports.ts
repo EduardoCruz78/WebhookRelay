@@ -81,6 +81,8 @@ export interface ApiKeyRepository {
   insert(apiKey: ApiKey): Promise<void>;
   /** The non-revoked key with this hash, if any. */
   findActiveByHash(keyHash: string): Promise<ApiKey | undefined>;
+  /** Revokes every active key with this name. */
+  revokeByName(name: string, now: Date): Promise<void>;
 }
 
 export interface Repositories {

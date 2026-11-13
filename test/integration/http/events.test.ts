@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { newId } from '../../../src/application/ids.js';
 import { ingestEvent } from '../../../src/application/ingest-event.js';
+import { hashApiKey } from '../../../src/domain/api-key.js';
 import { aSubscription, NOW } from '../../support/builders.js';
 import { createTestApp, type TestApp } from '../../support/app.js';
 
@@ -59,6 +60,23 @@ describe('POST /events: authentication', () => {
     const response = await publish({ nonsense: true }, null);
 
     expect(response.statusCode).toBe(401);
+  });
+
+  it('accepts keys with base64 characters (+ / =), like platform-generated ones', async () => {
+    const key = 'Zm9vYmFyYmF6cXV4K2RlbW8vc2NoZWR1bGluZy1hcGk+/w==';
+    await t.runtime.database.repositories.apiKeys.insert({
+      id: newId(),
+      name: 'bootstrap:source:scheduling-api',
+      role: 'source',
+      source: 'scheduling-api',
+      keyHash: hashApiKey(key),
+      createdAt: NOW,
+      revokedAt: null,
+    });
+
+    const response = await publish(body({ id: 'b64-key' }), `Bearer ${key}`);
+
+    expect(response.statusCode).toBe(202);
   });
 
   it('rejects an unknown key exactly like a missing one', async () => {
