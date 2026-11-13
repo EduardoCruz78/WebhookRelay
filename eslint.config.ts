@@ -24,6 +24,13 @@ export default defineConfig(
       'no-console': 'error',
     },
   },
+  // Plain JavaScript helper scripts (e2e): no TypeScript project, so no type-aware rules.
+  {
+    files: ['**/*.mjs'],
+    extends: [tseslint.configs.disableTypeChecked],
+    // Command-line scripts report progress on stdout.
+    rules: { 'no-console': 'off' },
+  },
   // Dependency rule (Clean Architecture): domain depends on nothing; application depends only on domain.
   {
     files: ['src/domain/**/*.ts'],

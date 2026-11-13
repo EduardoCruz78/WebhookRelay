@@ -8,3 +8,6 @@ docs
 *.md
 .env
 .env.*
+e2e
+scheduling-api
+render.yaml

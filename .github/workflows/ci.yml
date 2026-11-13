@@ -138,3 +138,31 @@ jobs:
       - name: Tear down
         if: always()
         run: docker compose down --volumes
+
+  end-to-end:
+    name: End-to-end with SchedulingApi
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: build-and-test
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # Project 1 is public: build it from its main branch next to this repository.
+      - uses: actions/checkout@v7
+        with:
+          repository: EduardoCruz78/SchedulingApi
+          path: scheduling-api
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: Book an appointment and receive the signed webhook
+        env:
+          SCHEDULING_API_DIR: ${{ github.workspace }}/scheduling-api
+        run: ./e2e/run.sh
+
+      - name: Service logs
+        if: failure()
+        run: cat e2e/e2e-logs.txt || true

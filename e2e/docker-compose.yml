@@ -1,0 +1,75 @@
+# End-to-end: SchedulingApi -> transactional outbox -> WebhookRelay -> signed webhook -> receiver.
+# Run with ./e2e/run.sh. SCHEDULING_API_DIR points at a SchedulingApi checkout (default: sibling folder).
+# Every credential below is a throwaway value for local containers only.
+name: webhook-relay-e2e
+
+services:
+  relay-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: relay
+      POSTGRES_USER: relay
+      POSTGRES_PASSWORD: relay
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U relay -d relay']
+      interval: 3s
+      retries: 20
+
+  relay:
+    build: ..
+    depends_on:
+      relay-db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://relay:relay@relay-db:5432/relay
+      MIGRATE_ON_START: 'true'
+      RUN_WORKER: 'true'
+      # The receiver lives on the Docker network, over http.
+      ALLOW_PRIVATE_TARGETS: 'true'
+      ALLOW_HTTP_TARGETS: 'true'
+      BOOTSTRAP_ADMIN_KEY: e2e-admin-key-0123456789abcdefghijklmnop
+      BOOTSTRAP_SOURCE: scheduling-api
+      BOOTSTRAP_SOURCE_KEY: e2e-source-key-0123456789abcdefghijklmnop
+    ports:
+      - '3100:3000'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O - http://127.0.0.1:3000/health || exit 1']
+      interval: 3s
+      retries: 30
+
+  scheduling-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: scheduling
+      POSTGRES_USER: scheduling
+      POSTGRES_PASSWORD: scheduling
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U scheduling -d scheduling']
+      interval: 3s
+      retries: 20
+
+  scheduling:
+    build: ${SCHEDULING_API_DIR:-../../SchedulingApi}
+    depends_on:
+      scheduling-db:
+        condition: service_healthy
+      relay:
+        condition: service_healthy
+    environment:
+      # Development: migrations and demo data (admin, customers, catalog) on startup.
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Default: Host=scheduling-db;Port=5432;Database=scheduling;Username=scheduling;Password=scheduling
+      Jwt__Secret: e2e-only-jwt-secret-0123456789abcdefghijklmnopqrstuv
+      Outbox__RelayUrl: http://relay:3000
+      Outbox__ApiKey: e2e-source-key-0123456789abcdefghijklmnop
+      Outbox__PollIntervalSeconds: '1'
+    ports:
+      - '8180:8080'
+
+  receiver:
+    image: node:24-alpine
+    command: ['node', '/app/receiver.mjs']
+    volumes:
+      - ./receiver.mjs:/app/receiver.mjs:ro
+    ports:
+      - '4100:4000'

@@ -9,3 +9,4 @@ coverage/
 .vscode/*
 !.vscode/extensions.json
 .idea/
+e2e/e2e-logs.txt
