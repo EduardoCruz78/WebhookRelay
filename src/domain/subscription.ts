@@ -13,6 +13,7 @@ export interface Subscription {
   readonly eventTypes: readonly string[];
   readonly isActive: boolean;
   readonly createdAt: Date;
+  readonly updatedAt: Date;
 }
 
 const PATTERN = /^(\*|[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*(\.\*)?)$/;
@@ -27,6 +28,17 @@ export function matchesEventType(patterns: readonly string[], type: string): boo
     if (pattern.endsWith('.*')) return type.startsWith(pattern.slice(0, -1));
     return pattern === type;
   });
+}
+
+/**
+ * Every pattern that matches `type`: `*`, the type itself and each prefix wildcard.
+ * `appointment.reminder.sent` → `*`, `appointment.reminder.sent`, `appointment.*`, `appointment.reminder.*`.
+ * Lets the database find interested subscriptions with one array-overlap query.
+ */
+export function patternsMatching(type: string): string[] {
+  const segments = type.split('.');
+  const prefixes = segments.slice(0, -1).map((_, i) => `${segments.slice(0, i + 1).join('.')}.*`);
+  return ['*', type, ...prefixes];
 }
 
 /** Rule D2: one delivery per active subscription interested in the event type. */

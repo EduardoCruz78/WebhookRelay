@@ -30,6 +30,7 @@ export function aSubscription(overrides: Partial<Subscription> = {}): Subscripti
     eventTypes: ['appointment.created'],
     isActive: true,
     createdAt: NOW,
+    updatedAt: NOW,
     ...overrides,
   };
 }

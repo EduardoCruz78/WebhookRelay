@@ -5,6 +5,7 @@ import {
   isInterestedIn,
   isValidEventTypePattern,
   matchesEventType,
+  patternsMatching,
 } from '../../../src/domain/subscription.js';
 import { aSubscription } from '../../support/builders.js';
 
@@ -34,6 +35,33 @@ describe('matchesEventType', () => {
 
   it('matches nothing with an empty list', () => {
     expect(matchesEventType([], 'appointment.created')).toBe(false);
+  });
+});
+
+describe('patternsMatching', () => {
+  it('lists the wildcard, the exact type and every prefix wildcard', () => {
+    expect(patternsMatching('appointment.reminder.sent')).toEqual([
+      '*',
+      'appointment.reminder.sent',
+      'appointment.*',
+      'appointment.reminder.*',
+    ]);
+  });
+
+  it('agrees with matchesEventType for every pattern it lists, and for none it omits', () => {
+    const type = 'appointment.reminder.sent';
+    const candidates = [
+      '*',
+      'appointment.*',
+      'appointment.reminder.*',
+      type,
+      'user.*',
+      'appointment.created',
+    ];
+
+    for (const pattern of candidates) {
+      expect(patternsMatching(type).includes(pattern)).toBe(matchesEventType([pattern], type));
+    }
   });
 });
 

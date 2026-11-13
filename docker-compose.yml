@@ -18,12 +18,24 @@ services:
       timeout: 3s
       retries: 10
 
-  api:
+  # One-off job: applies migrations, then exits. The API starts only after it succeeds,
+  # the same order a deployment pipeline should follow.
+  migrate:
     build: .
+    command: ['node', 'dist/migrate.js']
     depends_on:
       db:
         condition: service_healthy
     environment:
+      DATABASE_URL: postgres://webhook_relay:webhook_relay@db:5432/webhook_relay
+
+  api:
+    build: .
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://webhook_relay:webhook_relay@db:5432/webhook_relay
       NODE_ENV: production
       PORT: '3000'
       LOG_LEVEL: info

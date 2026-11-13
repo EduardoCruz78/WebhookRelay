@@ -30,6 +30,10 @@ jobs:
       - name: Install
         run: npm ci
 
+      # Fails if a production dependency has a known vulnerability. Dev-only tools are reviewed by hand.
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=moderate
+
       - name: Lint
         run: npm run lint
 
@@ -41,6 +45,16 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      # Like EF Core's HasPendingModelChanges: a schema change without its migration fails the build.
+      - name: Verify migrations match the schema
+        run: |
+          npx drizzle-kit generate --name drift-check
+          if [ -n "$(git status --porcelain drizzle)" ]; then
+            git status --porcelain drizzle
+            echo "::error::src/infrastructure/db/schema.ts changed without a migration. Run npm run db:generate."
+            exit 1
+          fi
 
       # Ubuntu runners ship with Docker, so Testcontainers-based integration tests run here.
       - name: Test
