@@ -8,7 +8,9 @@ import type { Channels } from './application/ports.js';
 import type { Config } from './config.js';
 import type { Clock, RandomSource } from './domain/clock.js';
 import type { AppDependencies } from './http/app.js';
+import { EmailChannel } from './infrastructure/channels/email.js';
 import { checkHost } from './infrastructure/channels/ssrf.js';
+import { TelegramChannel } from './infrastructure/channels/telegram.js';
 import { WebhookChannel } from './infrastructure/channels/webhook.js';
 import { Database } from './infrastructure/db/database.js';
 import { runMigrations } from './infrastructure/db/migrate.js';
@@ -31,6 +33,10 @@ export type RuntimeConfig = Pick<
   | 'WORKER_CONCURRENCY'
   | 'ALLOW_PRIVATE_TARGETS'
   | 'ALLOW_HTTP_TARGETS'
+  | 'SMTP_URL'
+  | 'EMAIL_FROM'
+  | 'TELEGRAM_BOT_TOKEN'
+  | 'TELEGRAM_API_URL'
 >;
 
 export interface RuntimeOverrides {
@@ -66,13 +72,7 @@ export async function createRuntime(
   const deliverDeps: DeliverDeps = {
     repositories: database.repositories,
     unitOfWork,
-    channels: overrides.channels ?? {
-      webhook: new WebhookChannel({
-        timeoutMs: config.DELIVERY_TIMEOUT_MS,
-        userAgent: USER_AGENT,
-        allowPrivateNetworks: config.ALLOW_PRIVATE_TARGETS,
-      }),
-    },
+    channels: overrides.channels ?? createChannels(config),
     clock,
     random: overrides.random ?? systemRandom,
     newId,
@@ -117,5 +117,30 @@ export async function createRuntime(
       await boss.stop({ graceful: true, timeout: config.DELIVERY_TIMEOUT_MS + 5_000 });
       await database.close();
     },
+  };
+}
+
+/** Webhooks are always on; e-mail and Telegram only when their settings are present. */
+export function createChannels(config: RuntimeConfig): Channels {
+  return {
+    webhook: new WebhookChannel({
+      timeoutMs: config.DELIVERY_TIMEOUT_MS,
+      userAgent: USER_AGENT,
+      allowPrivateNetworks: config.ALLOW_PRIVATE_TARGETS,
+    }),
+    ...(config.SMTP_URL && {
+      email: new EmailChannel({
+        smtpUrl: config.SMTP_URL,
+        from: config.EMAIL_FROM,
+        timeoutMs: config.DELIVERY_TIMEOUT_MS,
+      }),
+    }),
+    ...(config.TELEGRAM_BOT_TOKEN && {
+      telegram: new TelegramChannel({
+        botToken: config.TELEGRAM_BOT_TOKEN,
+        apiUrl: config.TELEGRAM_API_URL,
+        timeoutMs: config.DELIVERY_TIMEOUT_MS,
+      }),
+    }),
   };
 }

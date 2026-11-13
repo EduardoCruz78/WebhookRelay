@@ -52,6 +52,12 @@ services:
       timeout: 3s
       retries: 10
 
+  # Local SMTP server that catches every e-mail: open http://localhost:8025 to read them.
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - '8025:8025'
+
   # Same image, different command: consumes the queue and delivers. Scale it with
   # `docker compose up --scale worker=3`; pg-boss hands each job to exactly one of them.
   worker:
@@ -66,6 +72,8 @@ services:
       LOG_LEVEL: info
       ALLOW_PRIVATE_TARGETS: 'true'
       ALLOW_HTTP_TARGETS: 'true'
+      SMTP_URL: smtp://mailpit:1025
+      EMAIL_FROM: 'WebhookRelay <relay@webhook-relay.local>'
     stop_grace_period: 30s
 
 volumes:

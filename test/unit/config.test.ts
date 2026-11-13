@@ -19,6 +19,8 @@ describe('loadConfig', () => {
       WORKER_CONCURRENCY: 5,
       ALLOW_PRIVATE_TARGETS: false,
       ALLOW_HTTP_TARGETS: false,
+      EMAIL_FROM: 'WebhookRelay <relay@localhost>',
+      TELEGRAM_API_URL: 'https://api.telegram.org',
     });
   });
 
@@ -46,6 +48,23 @@ describe('loadConfig', () => {
 
   it('rejects an unknown NODE_ENV', () => {
     expect(() => loadConfig({ DATABASE_URL, NODE_ENV: 'staging' })).toThrow(/NODE_ENV/);
+  });
+
+  it('leaves the e-mail and Telegram channels off unless configured', () => {
+    const config = loadConfig({ DATABASE_URL });
+
+    expect(config.SMTP_URL).toBeUndefined();
+    expect(config.TELEGRAM_BOT_TOKEN).toBeUndefined();
+  });
+
+  it('validates the channel settings', () => {
+    expect(loadConfig({ DATABASE_URL, SMTP_URL: 'smtp://mailpit:1025' }).SMTP_URL).toBe(
+      'smtp://mailpit:1025',
+    );
+    expect(() => loadConfig({ DATABASE_URL, SMTP_URL: 'http://mailpit' })).toThrow(/SMTP_URL/);
+    expect(() => loadConfig({ DATABASE_URL, TELEGRAM_BOT_TOKEN: 'abc' })).toThrow(
+      /TELEGRAM_BOT_TOKEN/,
+    );
   });
 
   it('parses MIGRATE_ON_START strictly', () => {

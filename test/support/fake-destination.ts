@@ -53,6 +53,12 @@ export class FakeDestination {
     return destination;
   }
 
+  /** http://127.0.0.1:<port>, without a path. */
+  get baseUrl(): string {
+    const { port } = this.server.address() as AddressInfo;
+    return `http://127.0.0.1:${port}`;
+  }
+
   get url(): string {
     const { port } = this.server.address() as AddressInfo;
     return `http://127.0.0.1:${port}/hooks`;

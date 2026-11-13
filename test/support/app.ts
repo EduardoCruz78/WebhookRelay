@@ -44,6 +44,8 @@ export async function createTestApp(options: TestAppOptions = {}): Promise<TestA
       // Fake receivers listen on 127.0.0.1 over http.
       ALLOW_PRIVATE_TARGETS: true,
       ALLOW_HTTP_TARGETS: true,
+      EMAIL_FROM: 'WebhookRelay <relay@test.local>',
+      TELEGRAM_API_URL: 'https://api.telegram.org',
     },
     (error) => {
       throw error;

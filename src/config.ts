@@ -31,6 +31,18 @@ const configSchema = z.object({
   ALLOW_PRIVATE_TARGETS: booleanString,
   /** Webhook targets must use https unless this is true (local development). */
   ALLOW_HTTP_TARGETS: booleanString,
+  /**
+   * E-mail channel, off unless set: smtp://mailpit:1025 locally,
+   * smtps://resend:<api key>@smtp.resend.com:465 with Resend.
+   */
+  SMTP_URL: z.url({ protocol: /^smtps?$/ }).optional(),
+  EMAIL_FROM: z.string().min(3).default('WebhookRelay <relay@localhost>'),
+  /** Telegram channel, off unless set. Create a bot with @BotFather to get a token. */
+  TELEGRAM_BOT_TOKEN: z
+    .string()
+    .regex(/^\d+:[A-Za-z0-9_-]{30,}$/, 'Expected a BotFather token like 123456:ABC...')
+    .optional(),
+  TELEGRAM_API_URL: z.url().default('https://api.telegram.org'),
 });
 
 export type Config = z.infer<typeof configSchema>;

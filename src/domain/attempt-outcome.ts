@@ -9,7 +9,14 @@ export type AttemptOutcome =
   | { readonly kind: 'timeout'; readonly timeoutMs: number }
   | { readonly kind: 'network_error'; readonly message: string }
   /** Refused before sending: the target resolves to a private or reserved address (SSRF). */
-  | { readonly kind: 'blocked'; readonly reason: string };
+  | { readonly kind: 'blocked'; readonly reason: string }
+  /** A non-HTTP channel (SMTP) took the message. */
+  | { readonly kind: 'accepted'; readonly detail: string }
+  /**
+   * A non-HTTP channel refused it. The channel decides whether that is temporary, because status
+   * codes mean different things per protocol: SMTP 4xx is temporary, HTTP 4xx is not.
+   */
+  | { readonly kind: 'rejected'; readonly retryable: boolean; readonly reason: string };
 
 export type OutcomeClass = 'success' | 'retryable' | 'permanent';
 
@@ -25,6 +32,10 @@ export function classifyOutcome(outcome: AttemptOutcome): OutcomeClass {
       return 'retryable';
     case 'blocked':
       return 'permanent';
+    case 'accepted':
+      return 'success';
+    case 'rejected':
+      return outcome.retryable ? 'retryable' : 'permanent';
     case 'response': {
       const { status } = outcome;
       if (status >= 200 && status < 300) return 'success';
@@ -44,5 +55,9 @@ export function describeOutcome(outcome: AttemptOutcome): string {
       return `Network error: ${outcome.message}`;
     case 'blocked':
       return `Blocked: ${outcome.reason}`;
+    case 'accepted':
+      return `Accepted: ${outcome.detail}`;
+    case 'rejected':
+      return `Rejected: ${outcome.reason}`;
   }
 }

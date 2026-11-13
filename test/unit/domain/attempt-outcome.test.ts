@@ -35,6 +35,19 @@ describe('classifyOutcome', () => {
     );
   });
 
+  it('lets non-HTTP channels say whether a rejection is temporary', () => {
+    expect(classifyOutcome({ kind: 'accepted', detail: '250 OK' })).toBe('success');
+    expect(classifyOutcome({ kind: 'rejected', retryable: true, reason: '451 try later' })).toBe(
+      'retryable',
+    );
+    expect(classifyOutcome({ kind: 'rejected', retryable: false, reason: '550 no mailbox' })).toBe(
+      'permanent',
+    );
+    expect(describeOutcome({ kind: 'rejected', retryable: false, reason: '550 no mailbox' })).toBe(
+      'Rejected: 550 no mailbox',
+    );
+  });
+
   it('retries timeouts and network errors (D4)', () => {
     expect(classifyOutcome({ kind: 'timeout', timeoutMs: 10_000 })).toBe('retryable');
     expect(classifyOutcome({ kind: 'network_error', message: 'ECONNREFUSED' })).toBe('retryable');

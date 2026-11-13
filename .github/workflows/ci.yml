@@ -112,6 +112,19 @@ jobs:
             sleep 1
           done
           dead_letter | grep -q '"lastError":"HTTP 404"'
+
+          # E-mail channel: the worker sends through Mailpit, whose API shows the message.
+          curl --silent --fail -X POST http://localhost:3000/subscriptions \
+            -H "Authorization: Bearer $ADMIN" -H 'Content-Type: application/json' \
+            -d '{"name":"ops","channel":"email","target":"ops@example.com","eventTypes":["*"]}' \
+            > /dev/null
+          EVENT='{"id":"smoke-3","type":"appointment.cancelled","occurredAt":"2026-12-07T12:00:00Z","data":{}}'
+          test "$(publish)" = 202
+          for attempt in $(seq 1 30); do
+            if curl --silent http://localhost:8025/api/v1/messages | grep -q 'appointment.cancelled'; then break; fi
+            sleep 1
+          done
+          curl --silent http://localhost:8025/api/v1/messages | grep -q 'appointment.cancelled'
           echo "Smoke test passed"
 
       - name: Container logs
