@@ -1,0 +1,40 @@
+# Local stack: `docker compose up --build`, then open http://localhost:3000/health
+# Credentials below are for throwaway local containers only, never for a real deployment.
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: webhook_relay
+      POSTGRES_USER: webhook_relay
+      POSTGRES_PASSWORD: webhook_relay
+    ports:
+      # 5434 on the host: 5432 and 5433 are often taken by a local PostgreSQL install or the SchedulingApi stack.
+      - '5434:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U webhook_relay -d webhook_relay']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: '3000'
+      LOG_LEVEL: info
+    ports:
+      - '3000:3000'
+    healthcheck:
+      # BusyBox wget ships with Alpine, so the check needs no extra package.
+      test: ['CMD-SHELL', 'wget -q -O - http://127.0.0.1:3000/health || exit 1']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
